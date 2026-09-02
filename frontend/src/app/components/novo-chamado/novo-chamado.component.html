@@ -1,0 +1,54 @@
+<div class="card-container">
+  <h2>Abrir Chamado Condominial</h2>
+  <p class="subtitle">Triagem automatizada com análise de urgência por IA</p>
+
+  <form [formGroup]="chamadoForm" (ngSubmit)="submeter()">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="torre">Torre</label>
+        <select id="torre" formControlName="torre">
+          <option value="Torre A">Torre A</option>
+          <option value="Torre B">Torre B</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="apartamento">Apartamento</label>
+        <input id="apartamento" type="text" formControlName="apartamento" placeholder="Ex: 102" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="titulo">Título da Ocorrência</label>
+      <input id="titulo" type="text" formControlName="titulo" placeholder="Ex: Cano rompido na garagem" />
+    </div>
+
+    <div class="form-group">
+      <label for="descricao">Descrição Detalhada</label>
+      <textarea id="descricao" rows="4" formControlName="descricao" placeholder="Descreva o que está ocorrendo..."></textarea>
+    </div>
+
+    <button type="submit" [disabled]="chamadoForm.invalid || loading">
+      {{ loading ? 'Classificando Ocorrência...' : 'Enviar Chamado' }}
+    </button>
+  </form>
+
+<div *ngIf="resultado" class="resultado-box" [ngClass]="resultado.urgencia">
+  <h3>Resultado da Triagem</h3>
+  <p><strong>Protocolo:</strong> {{ resultado.chamado_id }}</p>
+  <p><strong>Classificação:</strong> {{ resultado.urgencia }}</p>
+  <p><strong>Confiança da IA:</strong> {{ (resultado.score_confianca * 100).toFixed(1) }}%</p>
+
+  <p *ngIf="resultado.notificado" class="alerta-urgente">
+    🚨 Notificação de emergência enviada imediatamente ao Síndico!
+  </p>
+
+  <p *ngIf="resultado.duplicado" class="alerta-agrupado">
+    ℹ️ <strong>Ocorrência em andamento:</strong> Notamos que um chamado similar recente já foi aberto (Base: {{ resultado.parent_id }}). Sua solicitação foi anexada ao caso para reforçar o acompanhamento.
+  </p>
+</div>
+
+  <div *ngIf="erroMsg" class="error-box">
+    {{ erroMsg }}
+  </div>
+</div>

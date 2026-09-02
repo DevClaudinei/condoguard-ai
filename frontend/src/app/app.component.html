@@ -1,0 +1,16 @@
+<header class="navbar">
+  <div class="brand">🏢 CondoGuard AI</div>
+  <nav class="nav-buttons">
+    <button [class.active]="abaAtiva === 'morador'" (click)="abaAtiva = 'morador'">
+      Área do Morador (Novo Chamado)
+    </button>
+    <button [class.active]="abaAtiva === 'sindico'" (click)="abaAtiva = 'sindico'">
+      Painel do Síndico
+    </button>
+  </nav>
+</header>
+
+<main>
+  <app-novo-chamado *ngIf="abaAtiva === 'morador'"></app-novo-chamado>
+  <app-painel-sindico *ngIf="abaAtiva === 'sindico'"></app-painel-sindico>
+</main>

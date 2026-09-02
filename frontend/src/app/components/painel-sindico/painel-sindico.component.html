@@ -1,0 +1,77 @@
+<div class="dashboard-container">
+  <div class="header-section">
+    <div>
+      <h2>Painel de Gestão e Triagem do Síndico</h2>
+      <p class="subtitle">Monitoramento em tempo real das duas torres</p>
+    </div>
+    <button class="btn-refresh" (click)="carregarDados()" [disabled]="carregando">
+      {{ carregando ? 'Atualizando...' : '🔄 Atualizar Lista' }}
+    </button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card p1" (click)="filtroUrgencia = 'P1_CRITICO'">
+      <span class="label">Críticos (P1)</span>
+      <span class="value">{{ contarPorUrgencia('P1_CRITICO') }}</span>
+    </div>
+    <div class="kpi-card p2" (click)="filtroUrgencia = 'P2_URGENTE'">
+      <span class="label">Urgentes (P2)</span>
+      <span class="value">{{ contarPorUrgencia('P2_URGENTE') }}</span>
+    </div>
+    <div class="kpi-card p3" (click)="filtroUrgencia = 'P3_ROTINA'">
+      <span class="label">Rotina (P3)</span>
+      <span class="value">{{ contarPorUrgencia('P3_ROTINA') }}</span>
+    </div>
+    <div class="kpi-card total" (click)="filtroUrgencia = 'TODOS'">
+      <span class="label">Total Geral</span>
+      <span class="value">{{ chamados.length }}</span>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span>Filtrando por: <strong>{{ filtroUrgencia }}</strong></span>
+    <button *ngIf="filtroUrgencia !== 'TODOS'" (click)="filtroUrgencia = 'TODOS'" class="btn-clear">Limpar filtro</button>
+  </div>
+
+  <div class="chamados-grid">
+    <div *ngFor="let item of chamadosFiltrados" class="chamado-card" [ngClass]="[item.urgencia, item.duplicado ? 'card-duplicado' : '']">
+
+      <!-- Topo do Card com Badges -->
+      <div class="card-top">
+        <div class="badges-wrapper">
+          <span class="badge" [ngClass]="item.urgencia">{{ item.urgencia }}</span>
+          <span *ngIf="item.duplicado" class="badge-duplicado" title="Identificado por similaridade vetorial">
+            🔗 Ocorrência Agrupada
+          </span>
+        </div>
+        <span class="protocol">{{ item.chamado_id }}</span>
+      </div>
+
+      <h4 class="card-title">{{ item.titulo }}</h4>
+      <p class="card-desc">{{ item.descricao }}</p>
+
+      <!-- Vínculo ao Chamado Pai -->
+      <div *ngIf="item.duplicado && item.parent_id" class="parent-info">
+        <span>Similar ao incidente principal: <strong>{{ item.parent_id }}</strong></span>
+      </div>
+
+      <!-- Rodapé do Card -->
+      <div class="card-footer">
+        <span class="unit-info">📍 {{ item.torre }} - Apt {{ item.apartamento }}</span>
+        <span class="confidence">IA: {{ (item.score_confianca * 100).toFixed(0) }}%</span>
+      </div>
+
+      <!-- Notificação / Alerta -->
+      <div *ngIf="item.notificado" class="alert-tag">
+        ⚡ Notificação enviada via WhatsApp
+      </div>
+      <div *ngIf="item.duplicado && !item.notificado" class="dedup-tag">
+        🛡️ Notificação suprimida (duplicidade semântica)
+      </div>
+    </div>
+
+    <div *ngIf="chamadosFiltrados.length === 0 && !carregando" class="empty-state">
+      Nenhum chamado encontrado para este filtro.
+    </div>
+  </div>
+</div>
