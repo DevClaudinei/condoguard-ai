@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 from app.schemas.chamado import ChamadoCreate, ChamadoResponse, UrgenciaEnum
 from app.core.classifier import TriagemEngine
 from app.services.notifier import enviar_alerta_urgencia
+from app.config import settings
 from app.database import get_db
 from app.models.chamado import ChamadoDB
 
@@ -21,22 +22,20 @@ def submeter_chamado(
     db: Session = Depends(get_db)
 ):
     texto = f"{chamado.titulo}. {chamado.descricao}"
-    urgencia, score = classifier.classificar(texto)
-    
-    # Gera o vetor numérico do chamado
-    vetor = classifier.model.encode(texto).tolist()
+    # Vetorização única: classificação e vetor de persistência no mesmo encode.
+    urgencia, score, vetor = classifier.classificar(texto)
 
-    # Janela de tempo: últimas 4 horas
-    janela_tempo = datetime.utcnow() - timedelta(hours=4)
+    # Janela de tempo configurável (evita número mágico hardcoded)
+    janela_tempo = datetime.now(timezone.utc) - timedelta(hours=settings.dedup_janela_horas)
 
     # Busca no PostgreSQL usando pgvector:
-    # 0.0 = idêntico | 0.35 = semantismo correlato no mesmo contexto
+    # 0.0 = idêntico | limiar configurável = semantismo correlato no mesmo contexto
     similar_existente = (
         db.query(ChamadoDB)
         .filter(
             ChamadoDB.created_at >= janela_tempo,
             ChamadoDB.urgencia == urgencia.value,
-            ChamadoDB.embedding.cosine_distance(vetor) < 0.35
+            ChamadoDB.embedding.cosine_distance(vetor) < settings.dedup_limiar_cosseno
         )
         .order_by(ChamadoDB.embedding.cosine_distance(vetor).asc())
         .first()
