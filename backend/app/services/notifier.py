@@ -1,15 +1,23 @@
-from app.config import settings
-from app.schemas.chamado import ChamadoCreate
+import logging
 
-def enviar_alerta_urgencia(chamado: ChamadoCreate, score: float):
-    # Simula chamada à API de mensagens utilizando as configs protegidas
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def enviar_alerta_para_gestores(evento: dict) -> None:
+    """Formata e dispara o alerta ao corpo diretivo a partir do evento de triagem.
+
+    Consumido pelo worker da fila (SQS -> Lambda). Aqui entraria a chamada real
+    ao provedor de mensageria (Twilio/WhatsApp) via httpx; hoje apenas registra.
+    """
     mensagem = (
         f"[ALERTA CRÍTICO CONDOMÍNIO]\n"
-        f"Local: {chamado.torre} - Apt {chamado.apartamento}\n"
-        f"Ocorrência: {chamado.titulo}\n"
-        f"Detalhe: {chamado.descricao}\n"
-        f"Confiança: {round(score * 100, 1)}%"
+        f"Local: {evento['torre']} - Apt {evento['apartamento']}\n"
+        f"Ocorrência: {evento['titulo']}\n"
+        f"Detalhe: {evento['descricao']}\n"
+        f"Confiança: {round(evento['score_confianca'] * 100, 1)}%"
     )
-    print(f">> Disparando webhook para {settings.whatsapp_api_url}")
-    print(f">> Destinatários: {settings.sindico_phone}, {settings.subsindico_phone}")
-    print(f">> Conteúdo:\n{mensagem}")
+    logger.info("Disparando webhook para %s", settings.whatsapp_api_url)
+    logger.info("Destinatários: %s, %s", settings.sindico_phone, settings.subsindico_phone)
+    logger.info("Conteúdo do alerta:\n%s", mensagem)

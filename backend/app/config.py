@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     dedup_janela_horas: int = 4
     dedup_limiar_cosseno: float = 0.35
 
+    # Mensageria de alertas P1 (AWS). Sem ARN, o publisher cai para log local.
+    aws_region: str = "us-east-1"
+    sns_topic_p1_arn: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()
