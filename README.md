@@ -52,6 +52,23 @@ A plataforma implementa um pipeline de **Processamento de Linguagem Natural (PLN
 │       Painel do Síndico       │
 │  (Dashboard, KPIs e Filtros)  │
 └───────────────────────────────┘
+```
+
+### Topologia de Produção (AWS · IaC com CDK)
+
+```text
+ CloudFront + OAC ──► S3 (SPA Angular)          [distribuição global do frontend]
+ Application Load Balancer ──► ECS Fargate (FastAPI + MiniLM, Auto Scaling)
+        │                              │ publish
+        │ RDS Proxy/SG                 ▼
+        ▼                          SNS ──► SQS (+DLQ, alarme CW) ──► Lambda ──► WhatsApp/Twilio
+ RDS PostgreSQL 16 + pgvector (isolado, Multi-AZ em prod)
+ Segredos: AWS Secrets Manager · Deploy: GitHub Actions (OIDC, sem chaves)
+```
+
+> Perfil **dev** econômico: Fargate em subnet pública (egress via IGW, **0 NAT**),
+> RDS single-AZ — reduz o custo em ambiente de estudo. **prod** ativa VPC isolada,
+> NAT, Multi-AZ e ≥2 tasks. Detalhes em [`infra/README.md`](infra/README.md).
 
 ---
 
@@ -66,9 +83,9 @@ A categorização divide os chamados em três classes operacionais de urgência:
 | **P3_ROTINA** | Demandas administrativas, agendamentos, dúvidas de rateio ou solicitações gerais. | Reserva de quiosque/salão, emissão de segunda via de boleto, agendamento de mudança. | Inserção na fila regular de atendimento do condomínio. |
 
 ### Mecanismo Híbrido e Deduplicação Inteligente:
-1. **Representação Vetorial:** O texto concatenado (`titulo + descricao`) é transformado em um vetor denso de 384 dimensões através do modelo `all-MiniLM-L6-v2`.
-2. **Deduplicação Semântica via pgvector:** Antes de enviar notificações repetidas, o sistema consulta os registros recentes (últimas 4 horas). Se encontrar ocorrência correlata com distância de cosseno `< 0.35`, o chamado é marcado como `🔗 Ocorrência Agrupada`, associado ao `parent_id` inicial e a notificação é suprimida para evitar spam ao corpo diretivo.
-3. **Guardrails Determinísticos:** Expressões críticas operacionais (*alagamento*, *vazamento*, *cano*, *fogo*, *gás*, *preso*) garantem elevação imediata para `P1_CRITICO`, evitando falsos negativos.
+1. **Representação Vetorial (inferência única):** O texto concatenado (`titulo + descricao`) é vetorizado **uma só vez** (384 dimensões, `all-MiniLM-L6-v2`, embeddings normalizados) e o vetor resultante é reutilizado tanto na classificação quanto na deduplicação e na persistência — sem chamadas redundantes ao modelo.
+2. **Deduplicação Semântica via pgvector + HNSW:** Antes de renotificar, o sistema consulta os registros recentes dentro de uma **janela e um limiar de cosseno configuráveis** (defaults: 4h e `< 0.35`), acelerada por um índice **HNSW** (`vector_cosine_ops`) mais um B-Tree composto `(urgencia, created_at)`. Ocorrências correlatas viram `🔗 Ocorrência Agrupada`, ligadas ao `parent_id` raiz, com a notificação suprimida para evitar spam ao corpo diretivo.
+3. **Guardrails Determinísticos:** Gatilhos críticos (*alagamento*, *vazamento*, *cano*, *fogo*, *gás*, *preso*…) — comparados com **normalização de acentos e por fronteira de palavra** — garantem elevação imediata para `P1_CRITICO`, evitando falsos negativos (e falsos positivos como *"represado"*).
 
 ---
 
@@ -76,21 +93,24 @@ A categorização divide os chamados em três classes operacionais de urgência:
 
 ### Backend & Inteligência Artificial
 * **Linguagem:** Python 3.11+
-* **Framework Web:** [FastAPI](https://fastapi.tiangolo.com)
-* **Servidor ASGI:** [Uvicorn](https://www.uvicorn.org)
+* **Framework Web:** [FastAPI](https://fastapi.tiangolo.com) · **Servidor ASGI:** [Uvicorn](https://www.uvicorn.org)
 * **Validação de Dados:** [Pydantic v2](https://docs.pydantic.dev) & Pydantic-Settings
 * **ORM & Banco:** [SQLAlchemy](https://www.sqlalchemy.org) com driver `psycopg2-binary`
-* **Embeddings & Similaridade:** [sentence-transformers](https://www.sbert.net) (`all-MiniLM-L6-v2`) e [scikit-learn](https://scikit-learn.org)
+* **Embeddings & Similaridade:** [sentence-transformers](https://www.sbert.net) (`all-MiniLM-L6-v2`) — similaridade por produto interno (NumPy)
+* **Arquitetura em camadas (Clean Architecture):** endpoint fino → **`TriagemService`** (regra de negócio) → **`ChamadoRepository`** (acesso a dados). O serviço depende de um **`Protocol`** de classificador, o que permite **testes unitários com mocks sem carregar o modelo de IA**.
+* **Autenticação & Proteção:** JWT ([PyJWT](https://pyjwt.readthedocs.io), HS256, pronto para migrar a Cognito/JWKS) e **rate-limiting** por IP ([slowapi](https://github.com/laurentS/slowapi)).
+* **Mensageria (AWS SDK):** [boto3](https://boto3.amazonaws.com) publicando alertas P1 em SNS (com fallback local em log).
 
 ### Banco de Dados & Infraestrutura
-* **Banco Relacional com Busca Vetorial:** PostgreSQL 16 com extensão nativa [`pgvector`](https://github.com/pgvector/pgvector)
-* **Virtualização e Containers:** [Docker](https://www.docker.com) & Docker Compose
+* **Banco Relacional com Busca Vetorial:** PostgreSQL 16 + [`pgvector`](https://github.com/pgvector/pgvector) com índice **HNSW**.
+* **Containers:** [Docker](https://www.docker.com) & Docker Compose (dev) · imagem de inferência com o modelo *baked* no build.
+* **Cloud (IaC):** [AWS CDK v2](https://docs.aws.amazon.com/cdk/) (Python) — VPC, **RDS pgvector**, **ECS Fargate + ALB** (Auto Scaling), **SNS/SQS + DLQ**, **S3 + CloudFront (OAC)**, Secrets Manager, governança com **cdk-nag**.
+* **CI/CD:** GitHub Actions (CI em todo PR: pytest, build/test Angular, `cdk synth` + cdk-nag, **varredura anti-segredos**) e CD via **OIDC** (sem chaves estáticas) com **trava de conta** fail-closed.
 
 ### Frontend
-* **Framework:** [Angular](https://angular.dev) (Single Page Application)
-* **Linguagem:** TypeScript
-* **Estilização:** SCSS modularizado
-* **Arquitetura de Componentes:** Formulários reativos (`ReactiveFormsModule`), injeção de dependência e integração HTTP (`HttpClientModule`).
+* **Framework:** [Angular](https://angular.dev) (SPA) · **Linguagem:** TypeScript · **Estilização:** SCSS modularizado
+* **Reatividade:** view-models com RxJS + `async pipe` e **`OnPush`**; formulários reativos.
+* **Autenticação:** `AuthService` + `AuthInterceptor` (Bearer JWT) + tela de login e guarda do Painel do Síndico.
 
 ---
 
@@ -148,9 +168,9 @@ PEX V/
 ```bash
 git clone https://github.com/DevClaudinei/condoguard-ai.git
 cd condoguard-ai
+```
 
 ### Passo 2: Subir o Banco de Dados
-
 ```bash
 docker compose up -d
 ```
@@ -184,19 +204,23 @@ Acesse no navegador: `http://localhost:4200`
 
 ## 📡 7. Endpoints da API
 
-| Método | Rota | Descrição |
-| :--- | :--- | :--- |
-| `POST` | `/api/v1/chamados/triagem` | Recebe a ocorrência, realiza vetorização semântica, valida similaridade para deduplicação, persiste no PostgreSQL e aciona notificação se for P1 inédito. |
-| `GET` | `/api/v1/chamados` | Retorna todos os chamados com status, prioridade e metadados de agrupamento para o painel do síndico. |
-| `GET` | `/health` | Healthcheck de integridade da API. |
+| Método | Rota | Auth | Descrição |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/auth/login` | Pública | Autentica a gestão (síndico) e emite o token JWT de acesso. |
+| `POST` | `/api/v1/chamados/triagem` | Pública · rate-limited | Recebe a ocorrência, vetoriza (encode único), deduplica via pgvector/HNSW, persiste e publica alerta se for P1 inédito. |
+| `GET` | `/api/v1/chamados` | 🔒 JWT (síndico) | Retorna os chamados com status, prioridade e metadados de agrupamento para o painel do síndico. |
+| `GET` | `/health` | Pública | Healthcheck de integridade da API. |
 
 ---
 
 ## 🔒 8. Segurança e Boas Práticas
 
-* **Proteção de Segredos:** Credenciais de banco de dados e chaves de API são gerenciadas via `.env`, mantidas fora do controle de versão pelo `.gitignore`.
-* **CORS Restrito:** O backend aceita origens parametrizadas para consumo seguro pelo cliente web.
-* **Modelagem Estrita:** Uso de Pydantic v2 para assegurar que apenas payloads válidos e higienizados alcancem o motor de inferência.
+* **Autenticação & Autorização:** `GET /chamados` é restrito à gestão via **JWT** (papel síndico); `POST /triagem` é público, porém protegido por **rate-limiting** por IP. Login **fail-closed** (desabilitado enquanto a senha não é definida).
+* **Proteção de Segredos:** Em dev via `.env` (fora do versionamento); em produção via **AWS Secrets Manager** (DB, JWT, Twilio) injetados no container. **Nenhum ID de conta, ARN ou credencial é versionado.**
+* **Varredura Anti-Segredos (CI + pre-commit):** `scripts/secret-scan.sh` bloqueia commits/PRs com access keys, chaves privadas, tokens ou ARNs de conta real — no pipeline e, opcionalmente, no hook local.
+* **Trava de Conta AWS (fail-closed):** deploy só prossegue na conta explicitamente autorizada — no pipeline (`AWS_ALLOWED_ACCOUNT_ID`) **e** em execuções locais do CDK (`enforce_account_guard` em `infra/app.py`).
+* **Hardening:** CORS restrito por ambiente, headers de segurança (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS), sessão SQLAlchemy com rollback seguro e IAM least-privilege na infraestrutura (cdk-nag).
+* **Modelagem Estrita:** Pydantic v2 assegura que apenas payloads válidos e higienizados alcancem o motor de inferência.
 
 ---
 
