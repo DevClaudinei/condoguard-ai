@@ -24,5 +24,6 @@ COPY scripts ./scripts
 
 EXPOSE 8000
 
-# 2 workers casam bem com 1 vCPU do Fargate; ajuste conforme o dimensionamento.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# 1 worker por task: evita N cópias do modelo Sentence-Transformers na RAM.
+# A escala é horizontal — via desired_count/Auto Scaling de tasks do ECS Fargate.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
