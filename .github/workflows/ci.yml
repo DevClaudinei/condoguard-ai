@@ -12,6 +12,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secret-scan:
+    name: Segurança (varredura anti-segredos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Varre todo o repositório por credenciais/keys/ARNs de conta real.
+      - name: Varredura anti-segredos
+        run: bash scripts/secret-scan.sh
+
   backend:
     name: Backend (lint + pytest)
     runs-on: ubuntu-latest
