@@ -3,24 +3,20 @@ from constructs import Construct
 
 
 class Network(Construct):
-    """VPC com três camadas de sub-rede:
+    """VPC cujo desenho varia por ambiente para otimizar custo em dev.
 
-    - public:      ALB (internet-facing)
-    - app (egress): ECS Fargate — privada com NAT (sai para ECR/SNS/Secrets)
-    - data (isolated): RDS — privada isolada, sem rota para a internet
+    prod: public (ALB) + private-egress (Fargate via NAT) + isolated (RDS), 2 NAT.
+    dev:  public (ALB + Fargate com IP público) + isolated (RDS), **0 NAT** —
+          o Fargate sai para ECR/SNS/Secrets pelo Internet Gateway (grátis),
+          eliminando ~US$32/mês por NAT Gateway. RDS permanece isolado.
     """
 
     def __init__(self, scope: Construct, id: str, *, env_name: str):
         super().__init__(scope, id)
         is_prod = env_name == "prod"
 
-        self.vpc = ec2.Vpc(
-            self,
-            "Vpc",
-            max_azs=2,
-            # 1 NAT em dev (custo); 2 em prod (HA por AZ).
-            nat_gateways=2 if is_prod else 1,
-            subnet_configuration=[
+        if is_prod:
+            subnet_configuration = [
                 ec2.SubnetConfiguration(
                     name="public", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=24
                 ),
@@ -30,5 +26,24 @@ class Network(Construct):
                 ec2.SubnetConfiguration(
                     name="data", subnet_type=ec2.SubnetType.PRIVATE_ISOLATED, cidr_mask=24
                 ),
-            ],
+            ]
+            nat_gateways = 2
+        else:
+            # Sem camada private-egress => nenhum NAT é provisionado.
+            subnet_configuration = [
+                ec2.SubnetConfiguration(
+                    name="public", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=24
+                ),
+                ec2.SubnetConfiguration(
+                    name="data", subnet_type=ec2.SubnetType.PRIVATE_ISOLATED, cidr_mask=24
+                ),
+            ]
+            nat_gateways = 0
+
+        self.vpc = ec2.Vpc(
+            self,
+            "Vpc",
+            max_azs=2,
+            nat_gateways=nat_gateways,
+            subnet_configuration=subnet_configuration,
         )
