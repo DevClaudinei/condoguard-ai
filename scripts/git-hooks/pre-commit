@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#
+# Hook opcional de pre-commit: barra o commit se a varredura anti-segredos
+# encontrar algo nos arquivos preparados (staged).
+#
+# Ativar (na raiz do repo):
+#   git config core.hooksPath scripts/git-hooks
+# Desativar:
+#   git config --unset core.hooksPath
+#
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [[ ${#STAGED[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+exec bash "${ROOT}/scripts/secret-scan.sh" "${STAGED[@]}"

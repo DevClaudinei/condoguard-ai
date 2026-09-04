@@ -1,0 +1,14 @@
+# Hook opcional via framework pre-commit (https://pre-commit.com).
+# Instalar:  pip install pre-commit && pre-commit install
+# Rodar em tudo:  pre-commit run --all-files
+#
+# Alternativa sem framework (hook nativo):
+#   git config core.hooksPath scripts/git-hooks
+repos:
+  - repo: local
+    hooks:
+      - id: secret-scan
+        name: Varredura anti-segredos
+        entry: bash scripts/secret-scan.sh
+        language: system
+        pass_filenames: true
