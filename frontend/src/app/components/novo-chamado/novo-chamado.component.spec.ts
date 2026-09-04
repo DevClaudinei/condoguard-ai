@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { CommonModule } from '@angular/common';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { ReactiveFormsModule } from '@angular/forms';
 
 import { NovoChamadoComponent } from './novo-chamado.component';
 
@@ -8,6 +11,7 @@ describe('NovoChamadoComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
+      imports: [CommonModule, HttpClientTestingModule, ReactiveFormsModule],
       declarations: [NovoChamadoComponent]
     });
     fixture = TestBed.createComponent(NovoChamadoComponent);

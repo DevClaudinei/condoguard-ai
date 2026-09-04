@@ -13,6 +13,21 @@ with engine.connect() as conn:
 
 Base.metadata.create_all(bind=engine)
 
+# Índices de suporte à triagem, aplicados de forma idempotente na inicialização.
+# - HNSW: acelera a busca por vizinho mais próximo (ORDER BY <=> ... LIMIT) na dedup.
+# - B-Tree composto: pré-filtra a janela temporal por balde de urgência.
+with engine.connect() as conn:
+    conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_chamados_embedding_hnsw "
+        "ON chamados USING hnsw (embedding vector_cosine_ops) "
+        "WITH (m = 16, ef_construction = 64)"
+    ))
+    conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_chamados_urgencia_created "
+        "ON chamados (urgencia, created_at DESC)"
+    ))
+    conn.commit()
+
 app = FastAPI(
     title="CondoGuard API",
     version="1.0.0",

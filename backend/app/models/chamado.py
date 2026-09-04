@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, Float, Boolean, DateTime, ForeignKey
 from pgvector.sqlalchemy import Vector
 from app.database import Base
@@ -22,4 +22,4 @@ class ChamadoDB(Base):
 
     # Vetor de 384 dimensões
     embedding = Column(Vector(384), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

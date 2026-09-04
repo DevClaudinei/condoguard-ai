@@ -1,6 +1,8 @@
+import re
+import unicodedata
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 from app.schemas.chamado import UrgenciaEnum
 
 BASE_CONHECIMENTO = {
@@ -25,29 +27,65 @@ BASE_CONHECIMENTO = {
     ]
 }
 
+# Gatilhos determinísticos alinhados ao README (sem acentos: comparação normalizada).
+GATILHOS = {
+    "fogo", "gas", "fumaca", "preso", "alagamento",
+    "vazamento", "cano", "curto", "incendio", "explosao"
+}
+
+# Piso mínimo de confiança semântica: abaixo disso a classificação vira ruído.
+PISO_CONFIANCA = 0.25
+
+
+def _normalizar(texto: str) -> str:
+    """Remove diacríticos e força minúsculas para comparação determinística."""
+    decomposto = unicodedata.normalize("NFKD", texto.lower())
+    return "".join(c for c in decomposto if not unicodedata.combining(c))
+
+
 class TriagemEngine:
     def __init__(self):
         # O modelo usará o snapshot já baixado sem disparar novas chamadas ao Hub
         self.model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
-        self.centroides = {
-            urgencia: np.mean(self.model.encode(exemplos), axis=0).reshape(1, -1)
-            for urgencia, exemplos in BASE_CONHECIMENTO.items()
-        }
 
-    def classificar(self, texto: str) -> tuple[UrgenciaEnum, float]:
-        vetor = self.model.encode([texto])
-        melhor_urgencia = UrgenciaEnum.P3_ROTINA
-        maior_similaridade = -1.0
+        # Centroides empilhados em uma única matriz (n_classes, 384).
+        # Cada centroide é a média dos exemplos e é renormalizado para norma unitária,
+        # de modo que o produto interno com o vetor da consulta = similaridade de cosseno.
+        self._labels = list(BASE_CONHECIMENTO.keys())
+        self._centroides = np.vstack([
+            self._centroide_unitario(self.model.encode(exemplos, normalize_embeddings=True))
+            for exemplos in BASE_CONHECIMENTO.values()
+        ])
 
-        for urgencia, centroide in self.centroides.items():
-            sim = float(cosine_similarity(vetor, centroide)[0][0])
-            if sim > maior_similaridade:
-                maior_similaridade = sim
-                melhor_urgencia = urgencia
+    @staticmethod
+    def _centroide_unitario(vetores: np.ndarray) -> np.ndarray:
+        centroide = vetores.mean(axis=0)
+        norma = np.linalg.norm(centroide)
+        return centroide / norma if norma > 0 else centroide
 
-        # Regra de guarda (Guardrail determinístico)
-        gatilhos = ["fogo", "gás", "fumaça", "preso", "alagamento", "curto-circuito"]
-        if any(palavra in texto.lower() for palavra in gatilhos):
-            return UrgenciaEnum.P1_CRITICO, max(maior_similaridade, 0.95)
+    def _guardrail_disparou(self, texto: str) -> bool:
+        """Valida gatilhos por fronteira de palavra sobre o texto normalizado."""
+        tokens = set(re.findall(r"\w+", _normalizar(texto)))
+        return bool(tokens & GATILHOS)
 
-        return melhor_urgencia, round(maior_similaridade, 4)
+    def classificar(self, texto: str) -> tuple[UrgenciaEnum, float, list[float]]:
+        # Vetorização única: reutilizada para classificação E persistência (pgvector).
+        vetor = self.model.encode(texto, normalize_embeddings=True)
+
+        # Similaridades por produto interno (centroides já normalizados) -> (n_classes,)
+        similaridades = self._centroides @ vetor
+        idx = int(np.argmax(similaridades))
+        melhor_urgencia = self._labels[idx]
+        maior_similaridade = float(similaridades[idx])
+
+        vetor_lista = vetor.tolist()
+
+        # Guardrail determinístico: eleva para P1 mesmo com baixa similaridade semântica.
+        if self._guardrail_disparou(texto):
+            return UrgenciaEnum.P1_CRITICO, max(maior_similaridade, 0.95), vetor_lista
+
+        # Piso de corte: sem sinal semântico confiável, cai defensivamente para rotina.
+        if maior_similaridade < PISO_CONFIANCA:
+            return UrgenciaEnum.P3_ROTINA, round(maior_similaridade, 4), vetor_lista
+
+        return melhor_urgencia, round(maior_similaridade, 4), vetor_lista
