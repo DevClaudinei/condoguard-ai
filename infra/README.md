@@ -71,6 +71,20 @@ cdk deploy -c env=prod \
 Com `certificate_arn`, o ALB expõe 443 e **redireciona 80 → 443**. Com
 `domain_name` + hosted zone, cria o registro Route53 (alias) apontando para o ALB.
 
+## CI/CD (GitHub Actions)
+- **CI** (`.github/workflows/ci.yml`) roda em PR/push para `main`: backend
+  (compileall + pytest), frontend (build + testes headless) e infra
+  (`cdk synth -c nag=true`). O `synth` **não** builda a imagem Docker (assets de
+  imagem só são construídos no deploy), então não exige Docker no CI.
+- **CD** (`.github/workflows/deploy.yml`) é manual (`workflow_dispatch`, escolhe
+  `dev`/`prod`) e usa **OIDC** (sem access keys). Pré-requisitos na conta/repo:
+  1. Provedor OIDC `token.actions.githubusercontent.com` na conta AWS.
+  2. IAM Role de deploy com trust para este repositório e permissão de assumir
+     os roles do bootstrap do CDK (`cdk-*-deploy-role`, `-cfn-exec-role`, etc.).
+  3. Repo **secret** `AWS_DEPLOY_ROLE_ARN` e **variable** `AWS_REGION`.
+  4. (Opcional) GitHub Environments `dev`/`prod` com required reviewers.
+  O CDK builda a imagem do backend e publica no ECR do bootstrap durante o deploy.
+
 ## Notas
 - **pgvector no RDS:** a extensão é criada pela aplicação na inicialização.
 - **1 worker por task:** o container roda `uvicorn --workers 1` (uma cópia do
