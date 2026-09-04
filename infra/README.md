@@ -52,9 +52,28 @@ aws secretsmanager put-secret-value \
 Os outputs (`ApiEndpoint`, `FrontendUrl`, `FrontendBucket`, `DbSecretArn`, `P1TopicArn`)
 são impressos ao fim do deploy.
 
+## Governança (cdk-nag)
+`AwsSolutionsChecks` roda no `synth` por padrão (desative com `-c nag=false`).
+Supressões documentadas ficam em `condoguard_infra/nag_suppressions.py` — cada uma
+com justificativa. Após o primeiro `synth`, revise anotações restantes e prefira
+corrigir a suprimir.
+
+## HTTPS / domínio customizado (opcional)
+O ALB sobe em HTTP por padrão. Para HTTPS, informe um certificado ACM **na região
+da stack** (para o CloudFront o certificado deve estar em us-east-1):
+```bash
+cdk deploy -c env=prod \
+  -c certificate_arn=arn:aws:acm:us-east-1:123456789012:certificate/xxxx \
+  -c domain_name=api.seudominio.com \
+  -c hosted_zone_id=Z0123456ABC \
+  -c hosted_zone_name=seudominio.com
+```
+Com `certificate_arn`, o ALB expõe 443 e **redireciona 80 → 443**. Com
+`domain_name` + hosted zone, cria o registro Route53 (alias) apontando para o ALB.
+
 ## Notas
-- **HTTPS na API:** o ALB sobe em HTTP. Para produção, associe um certificado ACM
-  e um listener 443 (ou coloque a API atrás do CloudFront/API Gateway).
 - **pgvector no RDS:** a extensão é criada pela aplicação na inicialização.
+- **1 worker por task:** o container roda `uvicorn --workers 1` (uma cópia do
+  modelo na RAM); escale horizontalmente via `desired_count`/Auto Scaling de tasks.
 - **Custo:** em `dev`, 1 NAT + RDS SMALL single-AZ + 1 task Fargate. `prod` ativa
   Multi-AZ, 2 NAT e ≥2 tasks — ver seção de custo no PR.

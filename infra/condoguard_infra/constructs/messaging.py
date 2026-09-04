@@ -28,11 +28,19 @@ class Messaging(Construct):
 
         self.topic = sns.Topic(self, "P1Topic", display_name="CondoGuard alertas P1")
 
-        self.dlq = sqs.Queue(self, "P1Dlq", retention_period=Duration.days(14))
+        self.dlq = sqs.Queue(
+            self,
+            "P1Dlq",
+            retention_period=Duration.days(14),
+            encryption=sqs.QueueEncryption.SQS_MANAGED,  # SSE-SQS (sem custo de KMS)
+            enforce_ssl=True,
+        )
         self.queue = sqs.Queue(
             self,
             "P1Queue",
             visibility_timeout=Duration.seconds(60),
+            encryption=sqs.QueueEncryption.SQS_MANAGED,
+            enforce_ssl=True,
             dead_letter_queue=sqs.DeadLetterQueue(max_receive_count=5, queue=self.dlq),
         )
         # raw_message_delivery: entrega o JSON do evento sem o envelope SNS.

@@ -2,6 +2,7 @@
 import os
 
 import aws_cdk as cdk
+from cdk_nag import AwsSolutionsChecks
 
 from condoguard_infra.condoguard_stack import CondoGuardStack
 
@@ -21,5 +22,9 @@ CondoGuardStack(
     ),
     description="CondoGuard AI - infraestrutura (VPC, RDS pgvector, ECS Fargate, SNS/SQS, S3/CloudFront)",
 )
+
+# Auditoria de conformidade cdk-nag (AwsSolutionsChecks). Desative com -c nag=false.
+if app.node.try_get_context("nag") != "false":
+    cdk.Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
 
 app.synth()

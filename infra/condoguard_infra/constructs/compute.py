@@ -1,10 +1,13 @@
 import os
 
 from aws_cdk import Duration
+from aws_cdk import aws_certificatemanager as acm
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
+from aws_cdk import aws_elasticloadbalancingv2 as elbv2
 from aws_cdk import aws_logs as logs
+from aws_cdk import aws_route53 as route53
 from aws_cdk import aws_secretsmanager as sm
 from constructs import Construct
 
@@ -16,11 +19,15 @@ _BACKEND_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "backen
 
 
 class Compute(Construct):
-    """ECS Fargate atrás de um ALB público, com Auto Scaling por CPU e req/target.
+    """ECS Fargate atrás de um ALB, com Auto Scaling por CPU e req/target.
 
-    Dimensionamento pensado para inferência CPU do MiniLM/Torch: 1 vCPU / 3 GB
-    por task (o modelo residente + numpy cabem com folga). Escala horizontal
-    absorve picos (ex.: incidente P1 gera muitos chamados simultâneos).
+    Dimensionamento para inferência CPU do MiniLM/Torch: 1 vCPU / 3 GB por task,
+    com **1 worker uvicorn por task** (uma única cópia do modelo na RAM). A escala
+    é horizontal — via desired_count + Auto Scaling de tasks — o que dá footprint
+    de memória previsível para modelos Sentence-Transformers.
+
+    HTTPS é opcional: se um certificado ACM for informado, o ALB expõe 443 e
+    redireciona 80 -> 443; caso contrário, sobe apenas em HTTP (dev).
     """
 
     def __init__(
@@ -35,23 +42,22 @@ class Compute(Construct):
         cors_origin: str,
         region: str,
         env_name: str,
+        certificate: acm.ICertificate | None = None,
+        domain_name: str | None = None,
+        domain_zone: route53.IHostedZone | None = None,
     ):
         super().__init__(scope, id)
         is_prod = env_name == "prod"
 
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc, container_insights=True)
-
         image = ecs.ContainerImage.from_asset(_BACKEND_DIR)
 
-        self.service = ecs_patterns.ApplicationLoadBalancedFargateService(
-            self,
-            "Api",
+        lb_kwargs = dict(
             cluster=cluster,
             cpu=1024,
             memory_limit_mib=3072,
             desired_count=2 if is_prod else 1,
             public_load_balancer=True,
-            # Tasks em sub-rede privada com egress; só o ALB é público.
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             health_check_grace_period=Duration.seconds(120),
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
@@ -79,6 +85,18 @@ class Compute(Construct):
                 ),
             ),
         )
+
+        # HTTPS opcional: exige um certificado ACM (contexto certificate_arn).
+        if certificate is not None:
+            lb_kwargs.update(
+                protocol=elbv2.ApplicationProtocol.HTTPS,
+                certificate=certificate,
+                redirect_http=True,  # cria listener 80 -> 443
+            )
+            if domain_name and domain_zone:
+                lb_kwargs.update(domain_name=domain_name, domain_zone=domain_zone)
+
+        self.service = ecs_patterns.ApplicationLoadBalancedFargateService(self, "Api", **lb_kwargs)
 
         self.service.target_group.configure_health_check(
             path="/health", healthy_http_codes="200"
