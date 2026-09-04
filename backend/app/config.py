@@ -23,6 +23,23 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     sns_topic_p1_arn: str = ""
 
+    # Autenticação JWT (gestão/síndico). Em produção, trocar por Cognito (JWKS).
+    jwt_secret_key: str = "dev-inseguro-troque-em-producao"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60
+    admin_username: str = "sindico"
+    admin_password: str = ""  # vazio => login desabilitado (defina no .env)
+
+    # CORS por ambiente: lista de origens separada por vírgula (sem wildcard em prod).
+    cors_origins: str = "http://localhost:4200"
+
+    # Rate-limiting do endpoint público de triagem (formato do slowapi/limits).
+    rate_limit_triagem: str = "10/minute"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 settings = Settings()
