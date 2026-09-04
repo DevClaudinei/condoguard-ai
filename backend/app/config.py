@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     sns_topic_p1_arn: str = ""
 
     # Autenticação JWT (gestão/síndico). Em produção, trocar por Cognito (JWKS).
-    jwt_secret_key: str = "dev-inseguro-troque-em-producao"
+    jwt_secret_key: str = "dev-inseguro-troque-em-producao-min-32-bytes"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     admin_username: str = "sindico"
