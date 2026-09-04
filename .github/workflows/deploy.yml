@@ -1,0 +1,74 @@
+name: Deploy (CDK)
+
+# Entrega contínua acionada manualmente (gate humano). Também pode ser
+# adaptado para disparar em tags v* removendo o comentário do bloco `push`.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente alvo do deploy"
+        type: choice
+        options: [dev, prod]
+        default: dev
+  # push:
+  #   tags: ["v*"]
+
+# OIDC: token de identidade para AssumeRole na AWS (sem access keys estáticas).
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    # GitHub Environment: permite required reviewers / secrets por ambiente.
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar AWS CDK CLI
+        run: npm install -g aws-cdk
+
+      # Autenticação via OpenID Connect (assume a role de deploy — sem chaves estáticas).
+      - name: Configurar credenciais AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: condoguard-deploy-${{ github.run_id }}
+
+      # Build do SPA para o BucketDeployment do CloudFront publicar os assets.
+      - name: Build do frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Instalar dependências da stack
+        working-directory: infra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # O CDK builda a imagem Docker do backend e publica no ECR do bootstrap
+      # automaticamente durante o deploy (via cdk-assets).
+      - name: cdk diff
+        working-directory: infra
+        run: cdk diff -c env=${{ github.event.inputs.environment }} || true
+
+      - name: cdk deploy
+        working-directory: infra
+        run: cdk deploy -c env=${{ github.event.inputs.environment }} --require-approval never
