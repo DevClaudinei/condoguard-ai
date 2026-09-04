@@ -12,5 +12,11 @@
 
 <main>
   <app-novo-chamado *ngIf="abaAtiva === 'morador'"></app-novo-chamado>
-  <app-painel-sindico *ngIf="abaAtiva === 'sindico'"></app-painel-sindico>
+
+  <ng-container *ngIf="abaAtiva === 'sindico'">
+    <app-painel-sindico *ngIf="autenticado$ | async; else loginTpl"></app-painel-sindico>
+    <ng-template #loginTpl>
+      <app-login></app-login>
+    </ng-template>
+  </ng-container>
 </main>
