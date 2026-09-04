@@ -81,9 +81,14 @@ Com `certificate_arn`, o ALB expõe 443 e **redireciona 80 → 443**. Com
   1. Provedor OIDC `token.actions.githubusercontent.com` na conta AWS.
   2. IAM Role de deploy com trust para este repositório e permissão de assumir
      os roles do bootstrap do CDK (`cdk-*-deploy-role`, `-cfn-exec-role`, etc.).
-  3. Repo **secret** `AWS_DEPLOY_ROLE_ARN` e **variable** `AWS_REGION`.
+  3. Repo **secret** `AWS_DEPLOY_ROLE_ARN` e **variables** `AWS_REGION` e
+     `AWS_ALLOWED_ACCOUNT_ID` (conta autorizada — trava de segurança).
   4. (Opcional) GitHub Environments `dev`/`prod` com required reviewers.
   O CDK builda a imagem do backend e publica no ECR do bootstrap durante o deploy.
+
+  > **Trava de conta (fail-closed):** o job aborta se a conta autenticada via OIDC
+  > não for igual a `AWS_ALLOWED_ACCOUNT_ID`, ou se essa variable não estiver
+  > definida — impedindo deploy acidental em outra conta (ex.: a do trabalho).
 
 ## Notas
 - **pgvector no RDS:** a extensão é criada pela aplicação na inicialização.
