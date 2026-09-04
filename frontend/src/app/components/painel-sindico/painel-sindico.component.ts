@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { BehaviorSubject, Observable, combineLatest, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { ChamadoService } from '../../services/chamado.service';
+import { AuthService } from '../../services/auth.service';
 import { ChamadoResponse, UrgenciaEnum } from '../../models/chamado.model';
 
 type FiltroUrgencia = UrgenciaEnum | 'TODOS';
@@ -22,6 +23,7 @@ interface PainelViewModel {
 })
 export class PainelSindicoComponent {
   private readonly chamadoService = inject(ChamadoService);
+  private readonly authService = inject(AuthService);
 
   private readonly filtro$ = new BehaviorSubject<FiltroUrgencia>('TODOS');
   private readonly refresh$ = new BehaviorSubject<void>(undefined);
@@ -71,5 +73,10 @@ export class PainelSindicoComponent {
 
   carregarDados(): void {
     this.refresh$.next();
+  }
+
+  sair(): void {
+    // Encerra a sessão; o AppComponent reage a autenticado$ e volta ao login.
+    this.authService.logout();
   }
 }

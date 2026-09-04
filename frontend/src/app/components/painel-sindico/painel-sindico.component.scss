@@ -16,6 +16,12 @@
   .subtitle { margin: 0.2rem 0 0 0; color: #64748b; font-size: 0.9rem; }
 }
 
+.header-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
 .btn-refresh {
   padding: 0.6rem 1rem;
   background: #0284c7;
@@ -25,6 +31,17 @@
   cursor: pointer;
   font-weight: 600;
   &:hover { background: #0369a1; }
+}
+
+.btn-logout {
+  padding: 0.6rem 1rem;
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  &:hover { background: #fee2e2; }
 }
 
 .kpi-grid {

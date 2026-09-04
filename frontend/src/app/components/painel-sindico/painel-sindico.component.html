@@ -4,9 +4,12 @@
       <h2>Painel de Gestão e Triagem do Síndico</h2>
       <p class="subtitle">Monitoramento em tempo real das duas torres</p>
     </div>
-    <button class="btn-refresh" (click)="carregarDados()" [disabled]="carregando$ | async">
-      {{ (carregando$ | async) ? 'Atualizando...' : '🔄 Atualizar Lista' }}
-    </button>
+    <div class="header-actions">
+      <button class="btn-refresh" (click)="carregarDados()" [disabled]="carregando$ | async">
+        {{ (carregando$ | async) ? 'Atualizando...' : '🔄 Atualizar Lista' }}
+      </button>
+      <button class="btn-logout" (click)="sair()">Sair</button>
+    </div>
   </div>
 
   <div class="kpi-grid">

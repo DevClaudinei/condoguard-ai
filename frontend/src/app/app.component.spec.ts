@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { AppComponent } from './app.component';
 import { NovoChamadoComponent } from './components/novo-chamado/novo-chamado.component';
 import { PainelSindicoComponent } from './components/painel-sindico/painel-sindico.component';
+import { LoginComponent } from './components/login/login.component';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 
 describe('AppComponent', () => {
   beforeEach(() => TestBed.configureTestingModule({
     imports: [CommonModule, HttpClientTestingModule, ReactiveFormsModule],
-    declarations: [AppComponent, NovoChamadoComponent, PainelSindicoComponent]
+    declarations: [AppComponent, NovoChamadoComponent, PainelSindicoComponent, LoginComponent]
   }));
 
   it('should create the app', () => {
