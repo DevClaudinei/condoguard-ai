@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     app_env: str = "development"
     port: int = 8000
     database_url: str = "postgresql://postgres:condopassword123@localhost:5432/condoguard_db"
+
+    # Componentes discretos do banco (12-factor): quando POSTGRES_HOST está definido
+    # (ex.: segredo do RDS injetado pelo ECS), a DSN é montada a partir deles.
+    postgres_host: str = ""
+    postgres_port: str = "5432"
+    postgres_db: str = "condoguard_db"
+    postgres_user: str = "postgres"
+    postgres_password: str = ""
     whatsapp_api_url: str = ""
     whatsapp_api_key: str = ""
     sindico_phone: str = ""
@@ -41,5 +49,17 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        """DSN efetiva: monta a partir de POSTGRES_* quando presente, senão usa DATABASE_URL."""
+        if self.postgres_host:
+            from urllib.parse import quote_plus
+            senha = quote_plus(self.postgres_password)
+            return (
+                f"postgresql://{self.postgres_user}:{senha}"
+                f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            )
+        return self.database_url
 
 settings = Settings()
