@@ -116,43 +116,57 @@ A categorização divide os chamados em três classes operacionais de urgência:
 
 ## 📁 5. Estrutura do Repositório
 
-PEX V/
-├── backend/
+```text
+condoguard-ai/
+├── backend/                         # API FastAPI + pipeline de IA
 │   ├── app/
 │   │   ├── api/
-│   │   │   └── v1/
-│   │   │       └── endpoints/
-│   │   │           └── chamados.py
+│   │   │   ├── deps.py               # providers FastAPI (engine lazy, repo, service)
+│   │   │   ├── auth_deps.py          # get_current_user / requer_sindico (JWT)
+│   │   │   └── v1/endpoints/
+│   │   │       ├── auth.py           # POST /auth/login
+│   │   │       └── chamados.py       # POST /triagem (rate-limited) · GET /chamados (JWT)
 │   │   ├── core/
-│   │   │   └── classifier.py
-│   │   ├── models/
-│   │   │   └── chamado.py
-│   │   ├── schemas/
-│   │   │   └── chamado.py
+│   │   │   ├── classifier.py         # TriagemEngine (encode único, centroides, guardrails)
+│   │   │   ├── security.py           # JWT + verificação de senha
+│   │   │   ├── rate_limit.py         # limiter (slowapi)
+│   │   │   └── middleware.py         # headers de segurança
+│   │   ├── models/chamado.py         # ORM SQLAlchemy + pgvector
+│   │   ├── schemas/chamado.py        # DTOs Pydantic v2
+│   │   ├── repositories/             # ChamadoRepository (acesso a dados)
 │   │   ├── services/
+│   │   │   ├── triagem_service.py    # Service Layer (orquestração)
+│   │   │   ├── messaging.py          # AlertaPublisher (SNS / log local)
 │   │   │   └── notifier.py
-│   │   ├── config.py
-│   │   ├── database.py
-│   │   └── main.py
-│   ├── .env.example
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── components/
-│   │   │   │   ├── novo-chamado/
-│   │   │   │   └── painel-sindico/
-│   │   │   ├── models/
-│   │   │   ├── services/
-│   │   │   ├── app.component.html
-│   │   │   └── app.module.ts
-│   │   └── styles.scss
-│   ├── angular.json
-│   ├── package.json
-│   └── tsconfig.json
+│   │   ├── workers/                  # notificador_handler.py (consumidor SQS/Lambda)
+│   │   ├── config.py · database.py · main.py
+│   ├── migrations/                   # SQL (created_at -> timestamptz)
+│   ├── scripts/run_migration.py
+│   ├── tests/                        # pytest (TriagemService + segurança)
+│   ├── Dockerfile · .dockerignore
+│   ├── requirements.txt · requirements-dev.txt
+│   └── .env.example
+├── frontend/                         # SPA Angular
+│   └── src/app/
+│       ├── components/               # novo-chamado · painel-sindico · login
+│       ├── services/                 # chamado.service.ts · auth.service.ts
+│       ├── interceptors/             # auth.interceptor.ts (Bearer JWT)
+│       ├── models/ · environments/
+│       └── app.module.ts · app.component.*
+├── infra/                            # Infraestrutura AWS CDK (Python)
+│   ├── app.py                        # entrypoint + enforce_account_guard (trava de conta)
+│   ├── condoguard_infra/
+│   │   ├── condoguard_stack.py
+│   │   ├── nag_suppressions.py       # governança cdk-nag
+│   │   └── constructs/               # network · data · compute · messaging · frontend
+│   ├── lambda/notificador/index.py   # consumidor SQS -> Twilio/WhatsApp
+│   └── scripts/setup-github-oidc.sh
+├── scripts/secret-scan.sh            # varredura anti-segredos (CI + pre-commit)
+├── .github/workflows/                # ci.yml · deploy.yml (OIDC)
+├── .pre-commit-config.yaml
 ├── docker-compose.yml
-├── .gitignore
 └── README.md
+```
 
 ---
 
