@@ -50,6 +50,24 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: condoguard-deploy-${{ github.run_id }}
 
+      # Trava de conta (fail-closed): só prossegue na conta explicitamente autorizada.
+      # Impede, por segurança, qualquer deploy acidental em outra conta (ex.: trabalho).
+      - name: Trava de conta AWS
+        env:
+          ALLOWED: ${{ vars.AWS_ALLOWED_ACCOUNT_ID }}
+        run: |
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          echo "Conta AWS autenticada: $ACCOUNT"
+          if [ -z "$ALLOWED" ]; then
+            echo "::error::AWS_ALLOWED_ACCOUNT_ID não definido. Configure a variable do repo com a conta autorizada."
+            exit 1
+          fi
+          if [ "$ACCOUNT" != "$ALLOWED" ]; then
+            echo "::error::Conta $ACCOUNT não autorizada (esperado $ALLOWED). Abortando o deploy."
+            exit 1
+          fi
+          echo "Conta autorizada — prosseguindo com o deploy."
+
       # Build do SPA para o BucketDeployment do CloudFront publicar os assets.
       - name: Build do frontend
         working-directory: frontend
