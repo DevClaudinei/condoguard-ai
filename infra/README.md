@@ -35,6 +35,16 @@ cdk diff                  # revise as mudanças
 cdk deploy -c env=dev     # ou: -c env=prod (Multi-AZ, deletion protection, 2 NAT)
 ```
 
+> **Blindagem de deploy local (fail-closed):** com credenciais AWS ativas, o
+> `app.py` **aborta** se a conta resolvida não for a autorizada — ou se ela não
+> for declarada. Passe a conta autorizada explicitamente:
+> ```bash
+> export ALLOWED_ACCOUNT_ID=498341975076        # ou: -c allowed_account_id=<ID>
+> cdk deploy -c env=dev
+> ```
+> Sem credenciais (ex.: `cdk synth` no CI), a checagem é ignorada — é síntese
+> env-agnostic, incapaz de tocar a nuvem.
+
 ## Pós-deploy (obrigatório — login fail-closed)
 `admin_password` nasce vazio (login desabilitado). Defina uma senha real:
 ```bash
