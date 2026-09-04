@@ -52,13 +52,24 @@ class Compute(Construct):
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc, container_insights=True)
         image = ecs.ContainerImage.from_asset(_BACKEND_DIR)
 
+        # dev: task em subnet pública com IP público (egress via IGW, sem NAT).
+        # prod: task em subnet privada com egress via NAT. Em ambos, o Security
+        # Group do serviço só aceita ingress vindo do ALB (default do pattern).
+        if is_prod:
+            task_subnet_type = ec2.SubnetType.PRIVATE_WITH_EGRESS
+            assign_public_ip = False
+        else:
+            task_subnet_type = ec2.SubnetType.PUBLIC
+            assign_public_ip = True
+
         lb_kwargs = dict(
             cluster=cluster,
             cpu=1024,
             memory_limit_mib=3072,
             desired_count=2 if is_prod else 1,
             public_load_balancer=True,
-            task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+            task_subnets=ec2.SubnetSelection(subnet_type=task_subnet_type),
+            assign_public_ip=assign_public_ip,
             health_check_grace_period=Duration.seconds(120),
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
                 image=image,
