@@ -39,6 +39,8 @@ fi
 
 echo "Conta: $AWS_ACCOUNT_ID | Repo: $GITHUB_REPO | Role: $ROLE_NAME"
 
+OWNER="${GITHUB_REPO%%/*}"
+REPO="${GITHUB_REPO##*/}"
 PROVIDER_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
 
 # 1) Provedor OIDC do GitHub (idempotente)
@@ -52,7 +54,9 @@ else
   echo "OIDC provider criado."
 fi
 
-# 2) Trust policy: apenas este repositório pode assumir a role
+# 2) Trust policy: apenas este repositório pode assumir a role.
+# O GitHub pode emitir o `sub` com os IDs numéricos (repo:OWNER@<id>/REPO@<id>:...);
+# o 2º padrão tolera ambos os formatos, mantendo o escopo ao owner/repo.
 TRUST=$(cat <<JSON
 {"Version":"2012-10-17","Statement":[{
   "Effect":"Allow",
@@ -60,7 +64,10 @@ TRUST=$(cat <<JSON
   "Action":"sts:AssumeRoleWithWebIdentity",
   "Condition":{
     "StringEquals":{"token.actions.githubusercontent.com:aud":"sts.amazonaws.com"},
-    "StringLike":{"token.actions.githubusercontent.com:sub":"repo:${GITHUB_REPO}:*"}
+    "StringLike":{"token.actions.githubusercontent.com:sub":[
+      "repo:${GITHUB_REPO}:*",
+      "repo:${OWNER}*/${REPO}*:*"
+    ]}
   }}]}
 JSON
 )
