@@ -21,17 +21,18 @@ class Database(Construct):
             engine=rds.DatabaseInstanceEngine.postgres(
                 version=rds.PostgresEngineVersion.VER_16_4
             ),
-            # Graviton (ARM) — melhor custo-benefício. SMALL em dev, MEDIUM+ em prod.
+            # Graviton (ARM). Em dev usa MICRO + gp2 (permitidos no AWS Free Plan);
+            # prod usa MEDIUM + gp3. O Free Plan bloqueia tamanhos != micro no RDS.
             instance_type=ec2.InstanceType.of(
                 ec2.InstanceClass.BURSTABLE4_GRAVITON,
-                ec2.InstanceSize.MEDIUM if is_prod else ec2.InstanceSize.SMALL,
+                ec2.InstanceSize.MEDIUM if is_prod else ec2.InstanceSize.MICRO,
             ),
             vpc=vpc,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
             multi_az=is_prod,
             allocated_storage=20,
-            max_allocated_storage=100,
-            storage_type=rds.StorageType.GP3,
+            max_allocated_storage=100 if is_prod else 20,
+            storage_type=rds.StorageType.GP3 if is_prod else rds.StorageType.GP2,
             storage_encrypted=True,
             database_name="condoguard_db",
             credentials=rds.Credentials.from_generated_secret(
