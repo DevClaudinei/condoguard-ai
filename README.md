@@ -21,6 +21,10 @@ A plataforma implementa um pipeline de **Processamento de Linguagem Natural (PLN
 
 ## 🏛️ 2. Arquitetura da Solução
 
+> 📐 **Documento de arquitetura detalhado:** camadas, fluxo P1, topologia AWS e perfis
+> de ambiente em **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — com diagrama ASCII e
+> o diagrama *as-code* ([`docs/architecture/diagram.py`](docs/architecture/diagram.py)).
+
 ```text
                ┌───────────────────────────────┐
                │    Morador / Interface Web    │
