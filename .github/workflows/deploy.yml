@@ -28,6 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     # GitHub Environment: permite required reviewers / secrets por ambiente.
     environment: ${{ github.event.inputs.environment }}
+    # Declara a conta autorizada para o enforce_account_guard do infra/app.py
+    # (fail-closed): com credenciais ativas, o CDK só sintetiza/deploya nesta conta.
+    env:
+      ALLOWED_ACCOUNT_ID: ${{ vars.AWS_ALLOWED_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
 
