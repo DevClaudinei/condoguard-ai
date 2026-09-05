@@ -176,6 +176,10 @@ condoguard-ai/
 
 ## 🚀 6. Como Executar o Projeto Localmente
 
+> 🧪 **Guia completo e reprodutível** (setup dos 3 serviços, variáveis de ambiente,
+> download do modelo MiniLM e **roteiro de validação funcional** com exemplos de chamados
+> P1/P2/P3 e teste de deduplicação): **[docs/RUNNING_LOCALLY.md](docs/RUNNING_LOCALLY.md)**.
+
 ### Pré-requisitos
 * Git
 * Docker Desktop instalado e em execução
