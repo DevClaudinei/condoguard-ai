@@ -15,3 +15,6 @@ __pycache__/
 # Configurações locais de IDE
 .vscode/
 .idea/
+
+# Diagrama de arquitetura gerado (as-code)
+docs/architecture/*.png
