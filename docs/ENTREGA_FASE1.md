@@ -20,6 +20,8 @@ linkcolor: RoyalBlue
 
 **Natureza da entrega:** Fase 1 — solução funcional validada em ambiente local, contemplando backend, frontend, pipeline de Inteligência Artificial e persistência com busca vetorial.
 
+**Repositório do código-fonte (GitHub):** <https://github.com/DevClaudinei/condoguard-ai>
+
 ## 1.1 Resumo da Proposta
 
 O CondoGuard-AI é uma plataforma *full-stack* que automatiza a **triagem de urgência** de chamados condominiais por meio de Processamento de Linguagem Natural (PLN). A partir do texto livre do relato de um morador (título e descrição), o sistema classifica a ocorrência em três níveis de prioridade operacional (P1 — Crítico, P2 — Urgente, P3 — Rotina), suprime alertas duplicados de um mesmo incidente por **similaridade semântica** e aciona a notificação imediata do corpo diretivo apenas nos casos críticos inéditos. O objetivo é reduzir o tempo de resposta a emergências e eliminar a sobrecarga informacional do síndico.
@@ -31,6 +33,17 @@ A extensão universitária materializa-se na aproximação entre técnicas de IA
 - **Moradores:** canal único, com protocolo rastreável, e confirmação de que ocorrências graves são escaladas imediatamente.
 - **Síndicos e subsíndicos:** priorização automática e combate à fadiga de alertas, permitindo foco no que é crítico.
 - **Segurança coletiva:** mitigação do risco de que emergências (vazamento de gás, incêndio, pessoa presa em elevador) sejam diluídas em canais informais e percam janela de resposta.
+
+## 1.3 Nota Metodológica: Engenharia de Software Assistida por IA
+
+O desenvolvimento adotou o paradigma de **engenharia de software assistida por inteligência artificial** (*AI-Assisted Pair Programming*), no qual o autor conduziu as decisões de arquitetura, a revisão crítica e a validação, empregando um assistente de IA como par técnico na implementação e na documentação. Para assegurar rastreabilidade e qualidade — e não abrir mão do rigor de engenharia mesmo com o ganho de produtividade —, a metodologia foi ancorada em governança estrita de repositório:
+
+- **Controle de versão por *branches* temáticas** e evolução por **incrementos atômicos** (*commits* semânticos), preservando um histórico legível e reversível.
+- **Revisões técnicas em *Pull Requests* (PRs)**, com descrição por escopo, tabela de testes e instruções de verificação, funcionando como *gate* humano de mérito antes da integração à *branch* principal.
+- **Testes automatizados** (unitários de *backend* e de *frontend*) executados a cada alteração, garantindo regressão controlada.
+- **Esteira de CI/CD** (integração e entrega contínuas) com verificação estática, execução da suíte de testes e varredura de segredos, condicionando a integração à aprovação automatizada (conforme detalhado na Seção 5.4 e ilustrado na Figura 5).
+
+Essa disciplina assegura que a assistência de IA atue como acelerador da produtividade sem comprometer a autoria intelectual, a segurança ou a manutenibilidade do software.
 
 # 2. Justificativa e Diagnóstico do Problema
 
@@ -69,6 +82,14 @@ O ponto central de desacoplamento é a dependência do serviço em um **`Protoco
 - **Reatividade:** *view-models* reativos com RxJS e `async pipe`, sob `ChangeDetectionStrategy.OnPush`, eliminando recomputações desnecessárias por ciclo de detecção de mudanças.
 - **Segurança de sessão:** `AuthService` (estado reativo de autenticação e armazenamento seguro do token), `AuthInterceptor` (injeção automática do cabeçalho `Authorization: Bearer` apenas nas chamadas à própria API) e tela de login que protege o Painel do Síndico.
 
+A camada de apresentação expõe ao morador um formulário público de registro de chamados, com identificação da unidade e campo de descrição livre do incidente, conforme ilustrado na Figura 1. Esse é o único ponto de entrada não autenticado do sistema — deliberadamente aberto para não criar barreira ao registro de emergências — e é protegido por limitação de taxa (Seção 4.3).
+
+**Figura 1 — Interface pública de abertura de chamados com campos para identificação da unidade e descrição livre do incidente.**
+
+![Formulário público de registro de chamados do CondoGuard-AI](./img/Formulario%20Morador.jpg)
+
+Fonte: Elaborado pelo autor (2026).
+
 ## 3.4 Banco de Dados e Busca Vetorial
 
 - **SGBD:** PostgreSQL 16 com a extensão nativa **`pgvector`**, permitindo armazenar e consultar vetores densos diretamente no banco relacional.
@@ -97,7 +118,13 @@ Os relatos foram distribuídos corretamente entre as três classes operacionais,
 | **P2 — Urgente** | Falha estrutural parcial (interfone, iluminação, ruído) | ~70–78% | Destaque prioritário no painel |
 | **P3 — Rotina** | Demanda administrativa (boleto, reserva, mudança) | ~60–68% | Fila regular de atendimento |
 
-Em execução controlada com treze chamados, obteve-se a distribuição esperada: **5 Críticos (P1), 4 Urgentes (P2) e 4 Rotina (P3)**, com os indicadores (KPIs) do Painel do Síndico refletindo corretamente os totais e os filtros por severidade respondendo de forma reativa.
+Em execução controlada com treze chamados, obteve-se a distribuição esperada: **5 Críticos (P1), 4 Urgentes (P2) e 4 Rotina (P3)**, com os indicadores (KPIs) do Painel do Síndico refletindo corretamente os totais e os filtros por severidade respondendo de forma reativa. A Figura 3 evidencia a calibração da IA no painel de gestão, com a elevação determinística de um incidente P1 (95% de confiança) sinalizada pelo respectivo *badge* de alerta crítico.
+
+**Figura 3 — Painel de gestão demonstrando a calibração da IA e a elevação determinística de incidentes P1 (95% de confiança) com *badge* de alerta.**
+
+![Painel do síndico com distribuição de chamados e alerta crítico P1](./img/Tela%20Sindico%202.jpg)
+
+Fonte: Elaborado pelo autor (2026).
 
 ## 4.2 Prova de Conceito da Deduplicação Semântica
 
@@ -107,13 +134,25 @@ A capacidade central de combate à fadiga de alertas foi validada: dois relatos 
 - **agrupado** ao incidente-raiz por meio do vínculo `parent_id` (exibindo o rótulo "Ocorrência Agrupada");
 - e teve a **notificação suprimida**, evitando o reenvio de alerta ao corpo diretivo.
 
-Este resultado demonstra que a deduplicação opera por **significado**, e não por igualdade textual ou por localização, sendo exatamente o comportamento necessário durante eventos coletivos: *um incidente físico corresponde a um único alerta*.
+Esse comportamento é evidenciado na Figura 4, na qual a ocorrência `CMD-DC32A6` é automaticamente associada ao incidente principal `CMD-C4A651` por similaridade vetorial, com supressão da notificação redundante. O resultado demonstra que a deduplicação opera por **significado**, e não por igualdade textual ou por localização, sendo exatamente o comportamento necessário durante eventos coletivos: *um incidente físico corresponde a um único alerta*.
+
+**Figura 4 — Ocorrência agrupada por similaridade vetorial (`CMD-DC32A6` associado a `CMD-C4A651`) com supressão automática de notificação redundante.**
+
+![Deduplicação semântica com ocorrência agrupada e notificação suprimida](./img/Tela%20Sindico%201.jpg)
+
+Fonte: Elaborado pelo autor (2026).
 
 ## 4.3 Governança de Acesso
 
-- **Autenticação administrativa:** o Painel do Síndico é protegido por **JWT** (política *fail-closed*: o acesso permanece desabilitado enquanto não houver credencial definida). A listagem de chamados exige o papel de gestão; a abertura de chamados pelo morador permanece pública.
+- **Autenticação administrativa:** o Painel do Síndico é protegido por **JWT** (política *fail-closed*: o acesso permanece desabilitado enquanto não houver credencial definida). A listagem de chamados exige o papel de gestão; a abertura de chamados pelo morador permanece pública. A Figura 2 apresenta a tela de autenticação restrita do corpo diretivo.
 - **Rate-limiting:** o endpoint público de triagem é protegido por limitação de taxa por IP, mitigando abuso e custo desnecessário de inferência.
 - **Mensageria local desacoplada:** o disparo de alerta P1 é publicado de forma assíncrona (padrão *publish*), com implementação local (registro em log) que preserva o mesmo contrato do provedor externo, sem acoplar a triagem ao canal de mensageria.
+
+**Figura 2 — Tela de autenticação restrita do corpo diretivo com proteção por token JWT sob política *fail-closed*.**
+
+![Tela de login administrativo protegida por JWT](./img/Tela%20Login%20Sistema.jpg)
+
+Fonte: Elaborado pelo autor (2026).
 
 # 5. Proposta de Evolução Técnica e Escalabilidade em Nuvem
 
@@ -130,14 +169,20 @@ O disparo de alertas P1 evolui para uma cadeia gerenciada e resiliente: **Amazon
 
 ## 5.3 Integração com Mensageria Ativa
 
-A função consumidora (Lambda) integra-se a provedores de mensageria ativa (**WhatsApp via Twilio**) para a notificação real do corpo diretivo, com credenciais isoladas em cofre de segredos.
+A função consumidora (Lambda) integra-se a provedores de mensageria ativa (**WhatsApp via Twilio**) para a notificação real do corpo diretivo, com credenciais isoladas em cofre de segredos. Essa integração foi validada em ambiente de nuvem, com a entrega de um alerta P1 crítico em tempo real ao dispositivo do gestor.
 
 ## 5.4 Governança, IaC e Observabilidade
 
 - **Infraestrutura como Código (IaC):** provisionamento declarativo via **AWS CDK**, com auditoria de conformidade automatizada (*cdk-nag*) e princípio de menor privilégio nas *roles* IAM.
 - **Distribuição do frontend:** SPA hospedada em Amazon S3 (privado) e distribuída globalmente via Amazon CloudFront com *Origin Access Control*.
-- **Entrega contínua:** *pipeline* de CI/CD (GitHub Actions) com autenticação federada **OIDC** (sem chaves estáticas) e varredura contínua de segredos.
+- **Entrega contínua:** *pipeline* de CI/CD (GitHub Actions) com autenticação federada **OIDC** (sem chaves estáticas) e varredura contínua de segredos. A Figura 5 apresenta a esteira executando a validação de testes unitários, a conformidade estática e a varredura de segredos.
 - **Monitoramento:** telemetria, alarmes e rastreamento distribuído (Amazon CloudWatch e AWS X-Ray).
+
+**Figura 5 — Esteira de CI/CD no GitHub Actions com validação de testes unitários, conformidade estática e varredura de segredos aprovadas.**
+
+![Pipeline de CI/CD no GitHub Actions com etapas aprovadas](./img/Tela%20Github%20Actions%201.jpg)
+
+Fonte: Elaborado pelo autor (2026).
 
 # 6. Considerações Finais
 
@@ -147,19 +192,19 @@ A Fase 1 entrega uma solução funcional, testável e desacoplada, que resolve o
 
 ## Apêndice A — Compilação para PDF/Word
 
-Este documento é Markdown puro com *front matter* YAML, pronto para exportação via [Pandoc](https://pandoc.org/).
+Este documento é Markdown puro com *front matter* YAML, pronto para exportação via [Pandoc](https://pandoc.org/). As figuras estão em `docs/img/` e são referenciadas por caminho relativo (URL-encoded), o que é resolvido automaticamente pelo Pandoc e pelo GitHub.
 
 **Word (`.docx`):**
 
-    pandoc docs/ENTREGA_FASE1.md -o ENTREGA_FASE1.docx
+    pandoc docs/ENTREGA_FASE1.md -o ENTREGA_FASE1.docx --resource-path=docs
 
 **PDF via LaTeX** (requer `texlive`/`xelatex`; acentuação correta):
 
     pandoc docs/ENTREGA_FASE1.md -o ENTREGA_FASE1.pdf \
-      --pdf-engine=xelatex --toc -V mainfont="DejaVu Serif"
+      --pdf-engine=xelatex --toc --resource-path=docs -V mainfont="DejaVu Serif"
 
 **PDF via Typst** (leve, sem TeX; requer Pandoc >= 3.x e `typst`):
 
-    pandoc docs/ENTREGA_FASE1.md -o ENTREGA_FASE1.pdf --pdf-engine=typst
+    pandoc docs/ENTREGA_FASE1.md -o ENTREGA_FASE1.pdf --pdf-engine=typst --resource-path=docs
 
-O bloco YAML no topo é lido pelo Pandoc para gerar capa, sumário (`toc`) e numeração de seções (`numbersections`) automaticamente.
+O bloco YAML no topo é lido pelo Pandoc para gerar capa, sumário (`toc`) e numeração de seções (`numbersections`) automaticamente. O parâmetro `--resource-path=docs` garante que as imagens em `img/` sejam localizadas ao compilar a partir da raiz do repositório.
