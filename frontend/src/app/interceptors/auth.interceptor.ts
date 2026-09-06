@@ -19,7 +19,8 @@ export class AuthInterceptor implements HttpInterceptor {
     const token = this.auth.getToken();
 
     // Anexa o Bearer apenas em chamadas à própria API (não vaza token a terceiros).
-    if (token && req.url.startsWith(environment.apiBaseUrl)) {
+    // Casa tanto o dev (http://host:8000/api...) quanto a mesma-origem em prod (/api...).
+    if (token && req.url.startsWith(`${environment.apiBaseUrl}/api`)) {
       req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
     }
 

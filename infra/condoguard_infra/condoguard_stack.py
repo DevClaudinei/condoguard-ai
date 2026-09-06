@@ -21,7 +21,6 @@ class CondoGuardStack(Stack):
         network = Network(self, "Network", env_name=env_name)
         database = Database(self, "Database", vpc=network.vpc, env_name=env_name)
         messaging = Messaging(self, "Messaging", env_name=env_name)
-        frontend = Frontend(self, "Frontend", env_name=env_name)
 
         # Segredo da aplicação: jwt_secret_key é GERADO; admin_password nasce VAZIO
         # (login fica fail-closed até a operação definir uma senha real):
@@ -39,14 +38,22 @@ class CondoGuardStack(Stack):
             ),
         )
 
-        # HTTPS opcional no ALB: informe -c certificate_arn=... (ACM na região da stack).
-        # Domínio custom opcional: -c domain_name=... -c hosted_zone_id=... -c hosted_zone_name=...
-        certificate = None
+        # Domínio custom (opcional): CloudFront serve o SPA e roteia /api/* ao ALB
+        # sob o MESMO host (mesma origem, sem CORS). O certificado ACM DEVE estar
+        # em us-east-1 (exigência do CloudFront) e cobrir o host do frontend.
+        #   -c certificate_arn=... -c frontend_domain=condoguard.bluphy.com.br \
+        #   -c hosted_zone_id=... -c hosted_zone_name=bluphy.com.br
         cert_arn = self.node.try_get_context("certificate_arn")
-        if cert_arn:
-            certificate = acm.Certificate.from_certificate_arn(self, "AlbCert", cert_arn)
+        certificate = (
+            acm.Certificate.from_certificate_arn(self, "SiteCert", cert_arn)
+            if cert_arn else None
+        )
 
-        domain_name = self.node.try_get_context("domain_name")
+        # Aceita frontend_domain (preferido) com fallback ao antigo domain_name.
+        frontend_domain = (
+            self.node.try_get_context("frontend_domain")
+            or self.node.try_get_context("domain_name")
+        )
         hosted_zone_id = self.node.try_get_context("hosted_zone_id")
         hosted_zone_name = self.node.try_get_context("hosted_zone_name")
         domain_zone = None
@@ -58,6 +65,17 @@ class CondoGuardStack(Stack):
                 zone_name=hosted_zone_name,
             )
 
+        # Só ativa domínio custom quando cert + host + zona estão presentes juntos.
+        use_custom_domain = bool(certificate and frontend_domain and domain_zone)
+        frontend = Frontend(
+            self,
+            "Frontend",
+            env_name=env_name,
+            certificate=certificate if use_custom_domain else None,
+            domain_names=[frontend_domain] if use_custom_domain else None,
+            hosted_zone=domain_zone if use_custom_domain else None,
+        )
+
         compute = Compute(
             self,
             "Compute",
@@ -65,35 +83,30 @@ class CondoGuardStack(Stack):
             db=database,
             messaging=messaging,
             app_secret=app_secret,
-            # CORS liberado apenas para a origem do CloudFront (frontend).
-            cors_origin=f"https://{frontend.domain_name}",
+            # Mesma origem elimina CORS; ainda assim declaramos o host público.
+            cors_origin=f"https://{frontend.public_domain}",
             region=self.region,
             env_name=env_name,
-            certificate=certificate,
-            domain_name=domain_name,
-            domain_zone=domain_zone,
         )
+
+        # Liga /api/* -> ALB DEPOIS que o Compute existe (evita dependência circular).
+        # O ALB fica HTTP-only interno; o CloudFront termina o TLS com o viewer.
+        frontend.add_api_behavior(compute.service.load_balancer)
 
         # Governança: supressões cdk-nag documentadas (o Aspect é anexado em app.py).
         apply_nag_suppressions(self, env_name=env_name)
 
-        if domain_name and certificate is not None:
-            api_endpoint = f"https://{domain_name}"
-        elif certificate is not None:
-            api_endpoint = f"https://{compute.service.load_balancer.load_balancer_dns_name}"
-        else:
-            api_endpoint = f"http://{compute.service.load_balancer.load_balancer_dns_name}"
         CfnOutput(
             self,
             "ApiEndpoint",
-            value=api_endpoint,
-            description="Endpoint da API (HTTPS quando certificate_arn é informado)",
+            value=f"https://{frontend.public_domain}/api/v1",
+            description="Base da API (mesma origem do SPA; roteada via CloudFront /api/*)",
         )
         CfnOutput(
             self,
             "FrontendUrl",
-            value=f"https://{frontend.domain_name}",
-            description="URL pública do SPA (CloudFront)",
+            value=f"https://{frontend.public_domain}",
+            description="URL pública do SPA (domínio custom quando configurado)",
         )
         CfnOutput(
             self, "FrontendBucket", value=frontend.bucket.bucket_name,

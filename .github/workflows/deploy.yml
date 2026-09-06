@@ -87,10 +87,33 @@ jobs:
 
       # O CDK builda a imagem Docker do backend e publica no ECR do bootstrap
       # automaticamente durante o deploy (via cdk-assets).
+      # Domínio custom (opcional): valores sensíveis (ARN com ID de conta, Zone ID)
+      # vêm de repository variables — nunca versionados (o secret-scan bloquearia).
       - name: cdk diff
         working-directory: infra
-        run: cdk diff -c env=${{ github.event.inputs.environment }} || true
+        env:
+          CERT_ARN: ${{ vars.ACM_CERT_ARN }}
+          FRONTEND_DOMAIN: ${{ vars.FRONTEND_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+          HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
+        run: |
+          cdk diff -c env=${{ github.event.inputs.environment }} \
+            ${CERT_ARN:+-c certificate_arn=$CERT_ARN} \
+            ${FRONTEND_DOMAIN:+-c frontend_domain=$FRONTEND_DOMAIN} \
+            ${HOSTED_ZONE_ID:+-c hosted_zone_id=$HOSTED_ZONE_ID} \
+            ${HOSTED_ZONE_NAME:+-c hosted_zone_name=$HOSTED_ZONE_NAME} || true
 
       - name: cdk deploy
         working-directory: infra
-        run: cdk deploy -c env=${{ github.event.inputs.environment }} --require-approval never
+        env:
+          CERT_ARN: ${{ vars.ACM_CERT_ARN }}
+          FRONTEND_DOMAIN: ${{ vars.FRONTEND_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+          HOSTED_ZONE_NAME: ${{ vars.HOSTED_ZONE_NAME }}
+        run: |
+          cdk deploy -c env=${{ github.event.inputs.environment }} \
+            ${CERT_ARN:+-c certificate_arn=$CERT_ARN} \
+            ${FRONTEND_DOMAIN:+-c frontend_domain=$FRONTEND_DOMAIN} \
+            ${HOSTED_ZONE_ID:+-c hosted_zone_id=$HOSTED_ZONE_ID} \
+            ${HOSTED_ZONE_NAME:+-c hosted_zone_name=$HOSTED_ZONE_NAME} \
+            --require-approval never
