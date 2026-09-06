@@ -65,8 +65,14 @@ def apply_nag_suppressions(stack: Construct, *, env_name: str) -> None:
             },
             {
                 "id": "AwsSolutions-CFR4",
-                "reason": "Sem domínio custom/ACM no CloudFront, usa o certificado padrão "
-                "(TLS mínimo não configurável).",
+                "reason": "Com domínio custom/ACM, o CloudFront usa o TLS mínimo padrão "
+                "(TLSv1.2_2021); sem domínio (dev), herda o certificado padrão não configurável.",
+            },
+            {
+                "id": "AwsSolutions-CFR5",
+                "reason": "Origem /api/* fala com o ALB por HTTP (hop interno à AWS); o viewer "
+                "usa sempre HTTPS (redirect-to-https) com TLS terminado no CloudFront. "
+                "Evolução em prod: HTTPS ponta a ponta com host/cert próprio no ALB.",
             },
             {
                 "id": "AwsSolutions-S1",
