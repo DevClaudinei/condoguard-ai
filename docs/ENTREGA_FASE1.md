@@ -84,11 +84,15 @@ O ponto central de desacoplamento é a dependência do serviço em um **`Protoco
 
 A camada de apresentação expõe ao morador um formulário público de registro de chamados, com identificação da unidade e campo de descrição livre do incidente, conforme ilustrado na Figura 1. Esse é o único ponto de entrada não autenticado do sistema — deliberadamente aberto para não criar barreira ao registro de emergências — e é protegido por limitação de taxa (Seção 4.3).
 
+<div style="page-break-inside: avoid; break-inside: avoid;">
+
 **Figura 1 — Interface pública de abertura de chamados com campos para identificação da unidade e descrição livre do incidente.**
 
-![Formulário público de registro de chamados do CondoGuard-AI](./img/Formulario%20Morador.jpg)
+<img src="./img/Formulario%20Morador.jpg" alt="Formulário público de registro de chamados do CondoGuard-AI" style="max-height: 360px; width: auto; display: block; margin: 0 auto;" />
 
-Fonte: Elaborado pelo autor (2026).
+*Fonte: Elaborado pelo autor (2026).*
+
+</div>
 
 ## 3.4 Banco de Dados e Busca Vetorial
 
@@ -104,6 +108,8 @@ O núcleo de classificação combina inferência semântica com salvaguardas det
 3. **Guardrails determinísticos.** Gatilhos operacionais críticos (p. ex., *gás*, *fogo*, *fumaça*, *vazamento*, *cano*, *preso*, *alagamento*, *curto*, *incêndio*, *explosão*), comparados com **normalização de acentos e por fronteira de palavra**, elevam imediatamente a ocorrência a P1 — garantindo que emergências não dependam exclusivamente do julgamento probabilístico do modelo e evitando falsos positivos por subcadeia (p. ex., "represado" não dispara "preso").
 4. **Piso de confiança.** Abaixo de um limiar mínimo de similaridade e na ausência de gatilho, a ocorrência é rebaixada defensivamente a P3, evitando classificações por ruído.
 
+<div style="page-break-before: always;"></div>
+
 # 4. Validação Funcional e Resultados Obtidos
 
 A solução foi exercitada de ponta a ponta em ambiente local (Docker para o PostgreSQL/pgvector; backend e frontend em execução), submetendo-se um conjunto de chamados representativos das três classes.
@@ -112,19 +118,29 @@ A solução foi exercitada de ponta a ponta em ambiente local (Docker para o Pos
 
 Os relatos foram distribuídos corretamente entre as três classes operacionais, com confiança coerente com a natureza de cada caso:
 
+<div style="page-break-inside: avoid; break-inside: avoid;">
+
 | Classe | Descrição operacional | Confiança observada | Ação do sistema |
 | :--- | :--- | :--- | :--- |
 | **P1 — Crítico** | Risco iminente (vazamento de gás, incêndio, pessoa presa) | ~95% (elevação por *guardrail*) | Persistência + notificação imediata ao gestor |
 | **P2 — Urgente** | Falha estrutural parcial (interfone, iluminação, ruído) | ~70–78% | Destaque prioritário no painel |
 | **P3 — Rotina** | Demanda administrativa (boleto, reserva, mudança) | ~60–68% | Fila regular de atendimento |
 
+</div>
+
 Em execução controlada com treze chamados, obteve-se a distribuição esperada: **5 Críticos (P1), 4 Urgentes (P2) e 4 Rotina (P3)**, com os indicadores (KPIs) do Painel do Síndico refletindo corretamente os totais e os filtros por severidade respondendo de forma reativa. A Figura 3 evidencia a calibração da IA no painel de gestão, com a elevação determinística de um incidente P1 (95% de confiança) sinalizada pelo respectivo *badge* de alerta crítico.
+
+<div style="page-break-inside: avoid; break-inside: avoid;">
 
 **Figura 3 — Painel de gestão demonstrando a calibração da IA e a elevação determinística de incidentes P1 (95% de confiança) com *badge* de alerta.**
 
-![Painel do síndico com distribuição de chamados e alerta crítico P1](./img/Tela%20Sindico%202.jpg)
+<img src="./img/Tela%20Sindico%202.jpg" alt="Painel do síndico com distribuição de chamados e alerta crítico P1" style="max-height: 330px; width: auto; display: block; margin: 0 auto;" />
 
-Fonte: Elaborado pelo autor (2026).
+*Fonte: Elaborado pelo autor (2026).*
+
+</div>
+
+<div style="page-break-before: always;"></div>
 
 ## 4.2 Prova de Conceito da Deduplicação Semântica
 
@@ -136,11 +152,15 @@ A capacidade central de combate à fadiga de alertas foi validada: dois relatos 
 
 Esse comportamento é evidenciado na Figura 4, na qual a ocorrência `CMD-DC32A6` é automaticamente associada ao incidente principal `CMD-C4A651` por similaridade vetorial, com supressão da notificação redundante. O resultado demonstra que a deduplicação opera por **significado**, e não por igualdade textual ou por localização, sendo exatamente o comportamento necessário durante eventos coletivos: *um incidente físico corresponde a um único alerta*.
 
+<div style="page-break-inside: avoid; break-inside: avoid;">
+
 **Figura 4 — Ocorrência agrupada por similaridade vetorial (`CMD-DC32A6` associado a `CMD-C4A651`) com supressão automática de notificação redundante.**
 
-![Deduplicação semântica com ocorrência agrupada e notificação suprimida](./img/Tela%20Sindico%201.jpg)
+<img src="./img/Tela%20Sindico%201.jpg" alt="Deduplicação semântica com ocorrência agrupada e notificação suprimida" style="max-height: 330px; width: auto; display: block; margin: 0 auto;" />
 
-Fonte: Elaborado pelo autor (2026).
+*Fonte: Elaborado pelo autor (2026).*
+
+</div>
 
 ## 4.3 Governança de Acesso
 
@@ -148,11 +168,15 @@ Fonte: Elaborado pelo autor (2026).
 - **Rate-limiting:** o endpoint público de triagem é protegido por limitação de taxa por IP, mitigando abuso e custo desnecessário de inferência.
 - **Mensageria local desacoplada:** o disparo de alerta P1 é publicado de forma assíncrona (padrão *publish*), com implementação local (registro em log) que preserva o mesmo contrato do provedor externo, sem acoplar a triagem ao canal de mensageria.
 
+<div style="page-break-before: always; page-break-inside: avoid; break-inside: avoid;">
+
 **Figura 2 — Tela de autenticação restrita do corpo diretivo com proteção por token JWT sob política *fail-closed*.**
 
-![Tela de login administrativo protegida por JWT](./img/Tela%20Login%20Sistema.jpg)
+<img src="./img/Tela%20Login%20Sistema.jpg" alt="Tela de login administrativo protegida por JWT" style="max-height: 360px; width: auto; display: block; margin: 0 auto;" />
 
-Fonte: Elaborado pelo autor (2026).
+*Fonte: Elaborado pelo autor (2026).*
+
+</div>
 
 # 5. Proposta de Evolução Técnica e Escalabilidade em Nuvem
 
@@ -178,11 +202,15 @@ A função consumidora (Lambda) integra-se a provedores de mensageria ativa (**W
 - **Entrega contínua:** *pipeline* de CI/CD (GitHub Actions) com autenticação federada **OIDC** (sem chaves estáticas) e varredura contínua de segredos. A Figura 5 apresenta a esteira executando a validação de testes unitários, a conformidade estática e a varredura de segredos.
 - **Monitoramento:** telemetria, alarmes e rastreamento distribuído (Amazon CloudWatch e AWS X-Ray).
 
+<div style="page-break-inside: avoid; break-inside: avoid;">
+
 **Figura 5 — Esteira de CI/CD no GitHub Actions com validação de testes unitários, conformidade estática e varredura de segredos aprovadas.**
 
-![Pipeline de CI/CD no GitHub Actions com etapas aprovadas](./img/Tela%20Github%20Actions%201.jpg)
+<img src="./img/Tela%20Github%20Actions%201.jpg" alt="Pipeline de CI/CD no GitHub Actions com etapas aprovadas" style="max-height: 330px; width: auto; display: block; margin: 0 auto;" />
 
-Fonte: Elaborado pelo autor (2026).
+*Fonte: Elaborado pelo autor (2026).*
+
+</div>
 
 # 6. Considerações Finais
 
@@ -193,6 +221,8 @@ A Fase 1 entrega uma solução funcional, testável e desacoplada, que resolve o
 ## Apêndice A — Compilação para PDF/Word
 
 Este documento é Markdown puro com *front matter* YAML, pronto para exportação via [Pandoc](https://pandoc.org/). As figuras estão em `docs/img/` e são referenciadas por caminho relativo (URL-encoded), o que é resolvido automaticamente pelo Pandoc e pelo GitHub.
+
+> **Nota sobre as quebras de página.** Os contêineres `<div style="page-break-inside: avoid; ...">` e `page-break-before: always` são interpretados pelo motor de impressão do Chromium (extensões *Markdown PDF* / *Markdown Preview Enhanced* do VS Code), mantendo cada figura íntegra e as seções principais no topo da folha. Ao exportar via Pandoc/LaTeX, esses atributos HTML são ignorados sem prejuízo ao conteúdo (o LaTeX faz seu próprio balanceamento de página).
 
 **Word (`.docx`):**
 
