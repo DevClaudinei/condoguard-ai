@@ -84,7 +84,7 @@ O ponto central de desacoplamento é a dependência do serviço em um **`Protoco
 
 A camada de apresentação expõe ao morador um formulário público de registro de chamados, com identificação da unidade e campo de descrição livre do incidente, conforme ilustrado na Figura 1. Esse é o único ponto de entrada não autenticado do sistema — deliberadamente aberto para não criar barreira ao registro de emergências — e é protegido por limitação de taxa (Seção 4.3).
 
-![Figura 1: Interface pública de abertura de chamados com campos para identificação da unidade e descrição livre do incidente.](./img/Formulario%20Morador.jpg)
+![Interface pública de abertura de chamados com campos para identificação da unidade e descrição livre do incidente.](./img/Formulario%20Morador.jpg)
 
 *Fonte: Elaborado pelo autor (2026).*
 
@@ -118,7 +118,7 @@ Os relatos foram distribuídos corretamente entre as três classes operacionais,
 
 Em execução controlada com treze chamados, obteve-se a distribuição esperada: **5 Críticos (P1), 4 Urgentes (P2) e 4 Rotina (P3)**, com os indicadores (KPIs) do Painel do Síndico refletindo corretamente os totais e os filtros por severidade respondendo de forma reativa. A Figura 3 evidencia a calibração da IA no painel de gestão, com a elevação determinística de um incidente P1 (95% de confiança) sinalizada pelo respectivo *badge* de alerta crítico.
 
-![Figura 3: Painel de gestão demonstrando a calibração da IA e a elevação determinística de incidentes P1 (95% de confiança) com badge de alerta.](./img/Tela%20Sindico%202.jpg)
+![Painel de gestão demonstrando a calibração da IA e a elevação determinística de incidentes P1 (95% de confiança) com badge de alerta.](./img/Tela%20Sindico%202.jpg)
 
 *Fonte: Elaborado pelo autor (2026).*
 
@@ -132,7 +132,7 @@ A capacidade central de combate à fadiga de alertas foi validada: dois relatos 
 
 Esse comportamento é evidenciado na Figura 4, na qual a ocorrência `CMD-DC32A6` é automaticamente associada ao incidente principal `CMD-C4A651` por similaridade vetorial, com supressão da notificação redundante. O resultado demonstra que a deduplicação opera por **significado**, e não por igualdade textual ou por localização, sendo exatamente o comportamento necessário durante eventos coletivos: *um incidente físico corresponde a um único alerta*.
 
-![Figura 4: Ocorrência agrupada por similaridade vetorial (CMD-DC32A6 associado a CMD-C4A651) com supressão automática de notificação redundante.](./img/Tela%20Sindico%201.jpg)
+![Ocorrência agrupada por similaridade vetorial (CMD-DC32A6 associado a CMD-C4A651) com supressão automática de notificação redundante.](./img/Tela%20Sindico%201.jpg)
 
 *Fonte: Elaborado pelo autor (2026).*
 
@@ -142,7 +142,7 @@ Esse comportamento é evidenciado na Figura 4, na qual a ocorrência `CMD-DC32A6
 - **Rate-limiting:** o endpoint público de triagem é protegido por limitação de taxa por IP, mitigando abuso e custo desnecessário de inferência.
 - **Mensageria local desacoplada:** o disparo de alerta P1 é publicado de forma assíncrona (padrão *publish*), com implementação local (registro em log) que preserva o mesmo contrato do provedor externo, sem acoplar a triagem ao canal de mensageria.
 
-![Figura 2: Tela de autenticação restrita do corpo diretivo com proteção por token JWT sob política fail-closed.](./img/Tela%20Login%20Sistema.jpg)
+![Tela de autenticação restrita do corpo diretivo com proteção por token JWT sob política fail-closed.](./img/Tela%20Login%20Sistema.jpg)
 
 *Fonte: Elaborado pelo autor (2026).*
 
@@ -170,7 +170,7 @@ A função consumidora (Lambda) integra-se a provedores de mensageria ativa (**W
 - **Entrega contínua:** *pipeline* de CI/CD (GitHub Actions) com autenticação federada **OIDC** (sem chaves estáticas) e varredura contínua de segredos. A Figura 5 apresenta a esteira executando a validação de testes unitários, a conformidade estática e a varredura de segredos.
 - **Monitoramento:** telemetria, alarmes e rastreamento distribuído (Amazon CloudWatch e AWS X-Ray).
 
-![Figura 5: Esteira de CI/CD no GitHub Actions com validação de testes unitários, conformidade estática e varredura de segredos aprovadas.](./img/Tela%20Github%20Actions%201.jpg)
+![Esteira de CI/CD no GitHub Actions com validação de testes unitários, conformidade estática e varredura de segredos aprovadas.](./img/Tela%20Github%20Actions%201.jpg)
 
 *Fonte: Elaborado pelo autor (2026).*
 
